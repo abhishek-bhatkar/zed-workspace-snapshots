@@ -60,18 +60,26 @@ The default Zed database path used by this tool is:
 
 ## Install
 
+### npm
+
+```bash
+npm install -g zed-workspace-snapshots
+```
+
+### Quick start
+
+```bash
+zed-workspace workspaces
+zed-workspace save infra --workspace 12
+zed-workspace open infra
+```
+
 ### Local install
 
 ```bash
 mkdir -p "$HOME/.local/bin"
 ln -sf "$PWD/zed-workspace.js" "$HOME/.local/bin/zed-workspace"
 chmod +x ./zed-workspace.js
-```
-
-### npm-style global install
-
-```bash
-npm install -g .
 ```
 
 ## Usage
@@ -110,7 +118,6 @@ That is sharper than generic "workspace management" because Zed already has auto
 
 ## Roadmap
 
-- Better selection of which live Zed workspace to snapshot
 - Better automatic terminal restoration
 - Better best-effort tab reopening
 - Optional shell completions
