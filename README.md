@@ -56,6 +56,16 @@ Snapshots are stored in:
 ~/.config/zed-workspace-snapshots
 ```
 
+## Release
+
+```bash
+# bump package.json version first
+git tag v0.3.0
+git push origin v0.3.0
+```
+
+The GitHub Actions publish workflow will verify the tag matches `package.json`, publish to npm, and create the GitHub release.
+
 ## License
 
 MIT
