@@ -35,9 +35,11 @@ function fail(message, options) {
 
 function usage() {
   console.log(`Usage:
-  zed-workspace save <name>     Save the latest Zed workspace snapshot
+  zed-workspace save <name> [--workspace <id>]
+                                Save a Zed workspace snapshot
   zed-workspace open <name>     Reopen a saved snapshot in a new Zed workspace
   zed-workspace list            List saved snapshots
+  zed-workspace workspaces      List recent live Zed workspaces
   zed-workspace show <name>     Print the saved JSON snapshot
   zed-workspace delete <name>   Delete a saved snapshot
 \nEnvironment:
@@ -137,6 +139,15 @@ function parseJson(text, errorPrefix) {
 }
 
 function latestWorkspace() {
+  const rows = recentWorkspaces(1);
+  if (rows.length === 0) {
+    fail("No saved Zed workspace rows were found in the local DB.");
+  }
+
+  return rows[0];
+}
+
+function recentWorkspaces(limit = 20) {
   const rows = loadJsonRows(`
     SELECT
       workspace_id,
@@ -148,11 +159,34 @@ function latestWorkspace() {
     FROM workspaces
     WHERE paths IS NOT NULL AND paths <> ''
     ORDER BY timestamp DESC
-    LIMIT 1;
+    LIMIT ${Number(limit)};
+  `);
+
+  return rows;
+}
+
+function workspaceById(workspaceId) {
+  const numericId = Number(workspaceId);
+  if (!Number.isInteger(numericId) || numericId <= 0) {
+    fail(`Workspace id must be a positive integer: ${workspaceId}`);
+  }
+
+  const rows = loadJsonRows(`
+    SELECT
+      workspace_id,
+      timestamp,
+      session_id,
+      window_id,
+      paths,
+      paths_order
+    FROM workspaces
+    WHERE workspace_id = ${numericId}
+      AND paths IS NOT NULL
+      AND paths <> '';
   `);
 
   if (rows.length === 0) {
-    fail("No saved Zed workspace rows were found in the local DB.");
+    fail(`Workspace not found: ${workspaceId}`);
   }
 
   return rows[0];
@@ -165,14 +199,18 @@ function workspaceEditors(workspaceId) {
       i.position,
       i.active,
       i.preview,
-      e.buffer_path
+      e.path,
+      e.buffer_path,
+      e.scroll_top_row
     FROM items i
     JOIN editors e
       ON e.item_id = i.item_id
      AND e.workspace_id = i.workspace_id
     WHERE i.workspace_id = ${Number(workspaceId)}
-      AND e.buffer_path IS NOT NULL
-      AND e.buffer_path <> ''
+      AND (
+        (e.buffer_path IS NOT NULL AND e.buffer_path <> '')
+        OR (e.path IS NOT NULL AND e.path <> '')
+      )
     ORDER BY i.pane_id, i.position;
   `);
 }
@@ -274,14 +312,28 @@ function writeSnapshot(name, snapshot) {
   }
 }
 
-function save(name) {
+function tabRestoreTarget(tab) {
+  if (!tab.path) {
+    return null;
+  }
+
+  if (tab.scrollTopRow == null) {
+    return tab.path;
+  }
+
+  return `${tab.path}:${Math.max(1, Number(tab.scrollTopRow) + 1)}`;
+}
+
+function save(name, options = {}) {
   if (!isSafeName(name)) {
     fail("Snapshot name must match [A-Za-z0-9._-]+");
   }
 
   ensureStoreDir();
 
-  const workspace = latestWorkspace();
+  const workspace = options.workspaceId == null
+    ? latestWorkspace()
+    : workspaceById(options.workspaceId);
   const paths = splitLines(workspace.paths);
 
   if (paths.length === 0) {
@@ -294,7 +346,12 @@ function save(name) {
       position: row.position,
       active: !!row.active,
       preview: row.preview == null ? null : !!row.preview,
-      path: row.buffer_path,
+      path: row.buffer_path || row.path || null,
+      scrollTopRow: row.scroll_top_row == null ? null : Number(row.scroll_top_row),
+      restoreTarget: tabRestoreTarget({
+        path: row.buffer_path || row.path || null,
+        scrollTopRow: row.scroll_top_row,
+      }),
     }));
   const terminals = workspaceTerminals(workspace.workspace_id)
     .map((row) => ({
@@ -367,6 +424,24 @@ function list() {
   }
 }
 
+function workspaces() {
+  ensureToolExists("sqlite3");
+
+  const rows = recentWorkspaces(20);
+  if (rows.length === 0) {
+    console.log("No recent live Zed workspaces found.");
+    return;
+  }
+
+  for (const row of rows) {
+    const folders = splitLines(row.paths);
+    const preview = folders[0] || "";
+    console.log(
+      `${row.workspace_id}\t${folders.length} folder(s)\t${row.timestamp}\t${preview}`,
+    );
+  }
+}
+
 function show(name) {
   const { file } = loadSnapshot(name);
   process.stdout.write(readUtf8File(file, `Failed to read snapshot '${name}'`));
@@ -383,8 +458,18 @@ function open(name) {
   runZed(["-n", ...existingFolders], "opening folders");
 
   const existingTabs = snapshotArray(snapshot, "openTabs")
-    .map((tab) => tab.path)
-    .filter((tabPath) => fs.existsSync(tabPath));
+    .filter((tab) => tab && tab.path && fs.existsSync(tab.path))
+    .sort((left, right) => {
+      if (left.paneId !== right.paneId) {
+        return left.paneId - right.paneId;
+      }
+      if (left.position !== right.position) {
+        return left.position - right.position;
+      }
+      return Number(left.active) - Number(right.active);
+    })
+    .map((tab) => tab.restoreTarget || tab.path)
+    .filter((target, index, allTabs) => allTabs.indexOf(target) === index);
 
   if (existingTabs.length > 0) {
     runZed(["-a", ...existingTabs], "reopening tabs");
@@ -423,26 +508,57 @@ function requireArg(command, arg) {
   process.exit(1);
 }
 
+function parseSaveOptions(args) {
+  const [name, ...rest] = args;
+  const options = {};
+
+  for (let index = 0; index < rest.length; index += 1) {
+    const value = rest[index];
+    if (value === "--workspace" || value === "-w") {
+      const workspaceId = rest[index + 1];
+      if (!workspaceId) {
+        fail(`Missing workspace id after ${value}`);
+      }
+      options.workspaceId = workspaceId;
+      index += 1;
+      continue;
+    }
+
+    fail(`Unknown option for save: ${value}`);
+  }
+
+  return {
+    name: requireArg("save", name),
+    options,
+  };
+}
+
 function main() {
   try {
-    const [command, arg] = process.argv.slice(2);
+    const [command, ...args] = process.argv.slice(2);
     switch (command) {
       case "save":
         ensureToolExists("sqlite3");
-        save(requireArg(command, arg));
+        {
+          const { name, options } = parseSaveOptions(args);
+          save(name, options);
+        }
         break;
       case "open":
         ensureToolExists("zed");
-        open(requireArg(command, arg));
+        open(requireArg(command, args[0]));
         break;
       case "list":
         list();
         break;
+      case "workspaces":
+        workspaces();
+        break;
       case "show":
-        show(requireArg(command, arg));
+        show(requireArg(command, args[0]));
         break;
       case "delete":
-        deleteSnapshot(requireArg(command, arg));
+        deleteSnapshot(requireArg(command, args[0]));
         break;
       default:
         usage();

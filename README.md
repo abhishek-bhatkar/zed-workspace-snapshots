@@ -8,6 +8,7 @@ It is for people who regularly work across many repos at once and want commands 
 
 ```bash
 zed-workspace save cqr-stack
+zed-workspace save customer-a --workspace 12
 zed-workspace open cqr-stack
 ```
 
@@ -21,9 +22,10 @@ zed-workspace open cqr-stack
 ## How it works
 
 - Reads the latest workspace from Zed's local DB
+- Can target a specific live workspace row by workspace id
 - Stores the current folder list as a JSON snapshot
 - Reopens that snapshot later with the `zed` CLI
-- Captures open-tab metadata when Zed has already persisted it
+- Captures open-tab metadata when Zed has already persisted it, including approximate line position
 - Captures terminal working-directory metadata and prints restore hints on open
 
 ## Scope
@@ -32,6 +34,7 @@ What works:
 
 - Multi-folder workspace snapshots
 - Named save, list, show, delete, and reopen flows
+- Live workspace selection with `workspaces` and `save --workspace <id>`
 - Simple local install with no extra dependencies beyond `node`, `sqlite3`, and `zed`
 - Terminal working directories are captured for later reference
 
@@ -75,6 +78,8 @@ npm install -g .
 
 ```bash
 zed-workspace save cqr-stack
+zed-workspace save cqr-stack --workspace 12
+zed-workspace workspaces
 zed-workspace list
 zed-workspace show cqr-stack
 zed-workspace delete old-stack
