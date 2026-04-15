@@ -4,7 +4,7 @@
   "description": "Named workspace snapshots for Zed",
   "main": "zed-workspace.js",
   "bin": {
-    "zed-workspace": "./zed-workspace.js"
+    "zed-workspace": "zed-workspace.js"
   },
   "files": [
     "zed-workspace.js",
