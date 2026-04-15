@@ -9,6 +9,7 @@ It is for people who regularly work across many repos at once and want commands 
 ```bash
 zed-workspace save cqr-stack
 zed-workspace save customer-a --workspace 12
+zed-workspace save-visible day-start
 zed-workspace open cqr-stack
 ```
 
@@ -23,6 +24,7 @@ zed-workspace open cqr-stack
 
 - Reads the latest workspace from Zed's local DB
 - Can target a specific live workspace row by workspace id
+- Can save all currently visible Zed workspaces in one command
 - Stores the current folder list as a JSON snapshot
 - Reopens that snapshot later with the `zed` CLI
 - Captures open-tab metadata when Zed has already persisted it, including approximate line position
@@ -35,6 +37,7 @@ What works:
 - Multi-folder workspace snapshots
 - Named save, list, show, delete, and reopen flows
 - Live workspace selection with `workspaces` and `save --workspace <id>`
+- One-step capture of all visible windows with `save-visible [prefix]`
 - Simple local install with no extra dependencies beyond `node`, `sqlite3`, and `zed`
 - Terminal working directories are captured for later reference
 
@@ -71,6 +74,7 @@ npm install -g zed-workspace-snapshots
 ```bash
 zed-workspace workspaces
 zed-workspace save infra --workspace 12
+zed-workspace save-visible day-start
 zed-workspace open infra
 ```
 
@@ -87,6 +91,8 @@ chmod +x ./zed-workspace.js
 ```bash
 zed-workspace save cqr-stack
 zed-workspace save cqr-stack --workspace 12
+zed-workspace save-visible
+zed-workspace save-visible day-start
 zed-workspace workspaces
 zed-workspace list
 zed-workspace show cqr-stack
@@ -109,6 +115,7 @@ zed-workspace open cqr-stack
 - `zed-workspace save customer-a`
 - `zed-workspace save infra-debug`
 - `zed-workspace save quarter-end-release`
+- `zed-workspace save-visible day-start`
 
 ## Positioning
 
