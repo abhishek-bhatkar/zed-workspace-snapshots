@@ -499,8 +499,16 @@ function createAppLauncher(name) {
 </dict>
 </plist>
 `;
+  const escapedCommand = `${JSON.stringify(process.execPath)} ${JSON.stringify(
+    path.resolve(process.argv[1]),
+  )} open ${JSON.stringify(name)}`;
   const launcherScript = `#!/bin/sh
-"${process.execPath}" "${path.resolve(process.argv[1])}" open "${name}"
+/usr/bin/osascript <<'APPLESCRIPT'
+tell application "Terminal"
+  activate
+  do script ${JSON.stringify(escapedCommand)}
+end tell
+APPLESCRIPT
 `;
 
   ensureDir(macOsDir, `Failed to create app bundle '${appPath}'`);
