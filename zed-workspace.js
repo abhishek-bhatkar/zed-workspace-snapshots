@@ -39,6 +39,7 @@ function usage() {
                                 Save a Zed workspace snapshot
   zed-workspace save-visible [prefix]
                                 Save all currently visible Zed workspaces
+  zed-workspace app <name>      Create a macOS app launcher for a snapshot
   zed-workspace open <name>     Reopen a saved snapshot in a new Zed workspace
   zed-workspace list            List saved snapshots
   zed-workspace workspaces      List recent live Zed workspaces
@@ -336,6 +337,22 @@ function writeSnapshot(name, snapshot) {
   }
 }
 
+function ensureDir(dir, errorPrefix) {
+  try {
+    fs.mkdirSync(dir, { recursive: true });
+  } catch (error) {
+    fail(`${errorPrefix}: ${error.message}`);
+  }
+}
+
+function writeExecutableFile(file, contents, errorPrefix) {
+  try {
+    fs.writeFileSync(file, contents, { mode: 0o755 });
+  } catch (error) {
+    fail(`${errorPrefix}: ${error.message}`);
+  }
+}
+
 function buildSnapshot(name, workspace) {
   const paths = splitLines(workspace.paths);
 
@@ -445,6 +462,62 @@ function saveVisible(prefix = "visible") {
 
   console.log("");
   console.log(`Restore with: ${savedNames.map((name) => `zed-workspace open ${name}`).join(" ; ")}`);
+}
+
+function appBundlePath(name) {
+  return path.join(os.homedir(), "Applications", `Zed Workspace - ${name}.app`);
+}
+
+function createAppLauncher(name) {
+  loadSnapshot(name);
+
+  const appPath = appBundlePath(name);
+  const contentsDir = path.join(appPath, "Contents");
+  const macOsDir = path.join(contentsDir, "MacOS");
+  const launcherPath = path.join(macOsDir, "launcher");
+  const bundleIdSuffix = name.replace(/[^A-Za-z0-9.-]/g, "-");
+  const infoPlist = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleDevelopmentRegion</key>
+  <string>en</string>
+  <key>CFBundleExecutable</key>
+  <string>launcher</string>
+  <key>CFBundleIdentifier</key>
+  <string>com.abhishekbhatkar.zed-workspace.${bundleIdSuffix}</string>
+  <key>CFBundleInfoDictionaryVersion</key>
+  <string>6.0</string>
+  <key>CFBundleName</key>
+  <string>Zed Workspace - ${name}</string>
+  <key>CFBundlePackageType</key>
+  <string>APPL</string>
+  <key>CFBundleShortVersionString</key>
+  <string>1.0</string>
+  <key>CFBundleVersion</key>
+  <string>1</string>
+</dict>
+</plist>
+`;
+  const launcherScript = `#!/bin/sh
+"${process.execPath}" "${path.resolve(process.argv[1])}" open "${name}"
+`;
+
+  ensureDir(macOsDir, `Failed to create app bundle '${appPath}'`);
+  writeExecutableFile(
+    path.join(contentsDir, "Info.plist"),
+    infoPlist,
+    `Failed to write app metadata for '${name}'`,
+  );
+  writeExecutableFile(
+    launcherPath,
+    launcherScript,
+    `Failed to write app launcher for '${name}'`,
+  );
+
+  console.log(`Created app launcher for '${name}':`);
+  console.log(appPath);
+  console.log("Drag it into the Dock to reopen this snapshot with one click.");
 }
 
 function list() {
@@ -610,6 +683,9 @@ function main() {
       case "open":
         ensureToolExists("zed");
         open(requireArg(command, args[0]));
+        break;
+      case "app":
+        createAppLauncher(requireArg(command, args[0]));
         break;
       case "list":
         list();
