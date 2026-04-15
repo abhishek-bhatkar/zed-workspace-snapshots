@@ -1,0 +1,17 @@
+{
+  "name": "zed-workspace-snapshots",
+  "version": "0.2.0",
+  "description": "Named workspace snapshots for Zed",
+  "bin": {
+    "zed-workspace": "./zed-workspace.js"
+  },
+  "keywords": [
+    "zed",
+    "zed-editor",
+    "workspace",
+    "session",
+    "developer-tools",
+    "productivity"
+  ],
+  "license": "MIT"
+}
