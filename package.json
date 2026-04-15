@@ -2,16 +2,34 @@
   "name": "zed-workspace-snapshots",
   "version": "0.2.0",
   "description": "Named workspace snapshots for Zed",
+  "main": "zed-workspace.js",
   "bin": {
     "zed-workspace": "./zed-workspace.js"
   },
+  "files": [
+    "zed-workspace.js",
+    "README.md",
+    "LICENSE"
+  ],
   "keywords": [
     "zed",
     "zed-editor",
     "workspace",
     "session",
+    "cli",
     "developer-tools",
     "productivity"
   ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/abhishek-bhatkar/zed-workspace-snapshots.git"
+  },
+  "homepage": "https://github.com/abhishek-bhatkar/zed-workspace-snapshots#readme",
+  "bugs": {
+    "url": "https://github.com/abhishek-bhatkar/zed-workspace-snapshots/issues"
+  },
+  "engines": {
+    "node": ">=18"
+  },
   "license": "MIT"
 }
